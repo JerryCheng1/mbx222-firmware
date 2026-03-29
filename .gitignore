@@ -1,0 +1,28 @@
+# Build artifacts
+build/
+.build_cleanup_*
+*.rom
+*.elf
+*.o
+*.d
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep FSP blobs (Intel public FSP for ADL-N IoT)
+# These are from https://github.com/intel/FSP/tree/master/AlderLakeFspBinPkg/IoT/AlderLakeN
+!3rdparty/fsp/
+!3rdparty/fsp/**/
+!3rdparty/fsp/**/*
+
+# backups
+*~
+*.bak

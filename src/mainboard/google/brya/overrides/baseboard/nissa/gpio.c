@@ -1,0 +1,451 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+/*
+ * MBX222: Baseboard GPIO configuration override for Nissa
+ * - Replaces ChromeEC with ITE IT5771E via eSPI
+ * - DDR4 SODIMM instead of LP5X soldered-down
+ * - Disables eMMC pins, enables SATA
+ * - Debug UART on COM1 (0x3F8)
+ */
+
+#include <baseboard/gpio.h>
+#include <baseboard/variants.h>
+#include <types.h>
+#include <soc/gpio.h>
+#include <vendorcode/google/chromeos/chromeos.h>
+
+/* Pad configuration in ramstage */
+static const struct pad_config gpio_table[] = {
+	/* eSPI interface to IT5771E EC - configured by hardware, do not touch */
+	/* A0  : ESPI_IO0 ==> ESPI_SOC_D0_EC */
+	/* A1  : ESPI_IO1 ==> ESPI_SOC_D1_EC */
+	/* A2  : ESPI_IO2 ==> ESPI_SOC_D2_EC */
+	/* A3  : ESPI_IO3 ==> ESPI_SOC_D3_EC */
+	/* A4  : ESPI_CS0# ==> ESPI_SOC_CS_EC_L */
+	/* A9  : ESPI_CLK ==> ESPI_SOC_CLK */
+	/* A10 : ESPI_RESET# ==> ESPI_SOC_RST_EC_L */
+
+	/* A5  : ESPI_ALERT0# ==> NC */
+	PAD_NC(GPP_A5, NONE),
+	/* A6  : ESPI_ALERT1# ==> NC */
+	PAD_NC(GPP_A6, NONE),
+	/* A7  : NC */
+	PAD_NC(GPP_A7, NONE),
+	/* A8  : NC */
+	PAD_NC(GPP_A8, NONE),
+	/* A11 : GPP_A11 ==> EN_SPK_PA */
+	PAD_CFG_GPO(GPP_A11, 1, DEEP),
+	/* A12 : SATA_GP0 ==> SATA_LED_N */
+	PAD_CFG_GPO(GPP_A12, 1, DEEP),
+	/* A13 : GPP_A13 ==> EC_SCI_L */
+	PAD_CFG_GPI_APIC_LOCK(GPP_A13, NONE, LEVEL, INVERT, LOCK_CONFIG),
+	/* A14 : USB_OC1# ==> NC */
+	PAD_NC(GPP_A14, NONE),
+	/* A15 : USB_OC2# ==> NC */
+	PAD_NC(GPP_A15, NONE),
+	/* A16 : USB_OC3# ==> NC */
+	PAD_NC_LOCK(GPP_A16, NONE, LOCK_CONFIG),
+	/* A17 : NC */
+	PAD_NC(GPP_A17, NONE),
+	/* A18 : NC */
+	PAD_NC(GPP_A18, NONE),
+	/* A19 : NC */
+	PAD_NC(GPP_A19, NONE),
+	/* A20 : DDSP_HPD2 ==> NC */
+	PAD_NC(GPP_A20, NONE),
+	/* A21 : NC */
+	PAD_NC(GPP_A21, NONE),
+	/* A22 : NC */
+	PAD_NC(GPP_A22, NONE),
+	/* A23 : GPP_A23 ==> HP_INT_ODL */
+	PAD_CFG_GPI_INT(GPP_A23, NONE, PLTRST, EDGE_BOTH),
+
+	/* B0  : CORE_VID0 ==> VCCIN_AUX_VID0 */
+	PAD_CFG_NF(GPP_B0, NONE, DEEP, NF1),
+	/* B1  : CORE_VID1 ==> VCCIN_AUX_VID1 */
+	PAD_CFG_NF(GPP_B1, NONE, DEEP, NF1),
+	/* B2  : NC */
+	PAD_NC(GPP_B2, NONE),
+	/* B3  : NC */
+	PAD_NC_LOCK(GPP_B3, NONE, LOCK_CONFIG),
+	/* B4  : SSD_PERST_L */
+	PAD_NC_LOCK(GPP_B4, NONE, LOCK_CONFIG),
+	/* B5  : I2C2_SDA ==> SOC_I2C_SUB_SDA */
+	PAD_CFG_NF_LOCK(GPP_B5, NONE, NF2, LOCK_CONFIG),
+	/* B6  : I2C2_SCL ==> SOC_I2C_SUB_SCL */
+	PAD_CFG_NF_LOCK(GPP_B6, NONE, NF2, LOCK_CONFIG),
+	/* B7  : I2C3_SDA ==> SOC_I2C_AUDIO_SDA */
+	PAD_CFG_NF_LOCK(GPP_B7, NONE, NF2, LOCK_CONFIG),
+	/* B8  : I2C3_SCL ==> SOC_I2C_AUDIO_SCL */
+	PAD_CFG_NF_LOCK(GPP_B8, NONE, NF2, LOCK_CONFIG),
+	/* B9  : Not available */
+	PAD_NC(GPP_B9, NONE),
+	/* B10 : Not available */
+	PAD_NC(GPP_B10, NONE),
+	/* B11 : NC */
+	PAD_NC(GPP_B11, NONE),
+	/* B12 : SLP_S0# ==> SLP_S0_L */
+	PAD_CFG_NF(GPP_B12, NONE, DEEP, NF1),
+	/* B13 : PLTRST# ==> PLT_RST_L */
+	PAD_CFG_NF_LOCK(GPP_B13, NONE, NF1, LOCK_CONFIG),
+	/* B14 : SPKR ==> GPP_B14_STRAP */
+	PAD_NC_LOCK(GPP_B14, NONE, LOCK_CONFIG),
+	/* B15 : NC */
+	PAD_NC_LOCK(GPP_B15, NONE, LOCK_CONFIG),
+	/* B16 : I2C5_SDA ==> SOC_I2C_TCHPAD_SDA */
+	PAD_CFG_NF_LOCK(GPP_B16, NONE, NF2, LOCK_CONFIG),
+	/* B17 : I2C5_SCL ==> SOC_I2C_TCHPAD_SCL */
+	PAD_CFG_NF_LOCK(GPP_B17, NONE, NF2, LOCK_CONFIG),
+	/* B18 : GPP_B18 ==> GPP_B18_STRAP */
+	PAD_NC(GPP_B18, NONE),
+	/* B19 : Not available */
+	PAD_NC(GPP_B19, NONE),
+	/* B20 : Not available */
+	PAD_NC(GPP_B20, NONE),
+	/* B21 : Not available */
+	PAD_NC(GPP_B21, NONE),
+	/* B22 : Not available */
+	PAD_NC(GPP_B22, NONE),
+	/* B23 : SML1ALERT# ==> PCHHOT_ODL_STRAP */
+	PAD_NC(GPP_B23, NONE),
+
+	/* C0  : SMBCLK ==> NC */
+	PAD_NC(GPP_C0, NONE),
+	/* C1  : SMBDATA ==> NC */
+	PAD_NC(GPP_C1, NONE),
+	/* C2  : SMBALERT# ==> GPP_C2_STRAP */
+	PAD_NC(GPP_C2, NONE),
+	/* C3  : SML0CLK ==> NC */
+	PAD_NC(GPP_C3, NONE),
+	/* C4  : NC */
+	PAD_NC(GPP_C4, NONE),
+	/* C5  : SML0ALERT# ==> GPP_C5_STRAP */
+	PAD_NC(GPP_C5, NONE),
+	/* C6  : SML1CLK ==> NC */
+	PAD_NC(GPP_C6, NONE),
+	/* C7  : SML1DATA ==> NC */
+	PAD_NC(GPP_C7, NONE),
+
+	/* D0  : NC */
+	PAD_NC_LOCK(GPP_D0, NONE, LOCK_CONFIG),
+	/* D1  : NC */
+	PAD_NC_LOCK(GPP_D1, NONE, LOCK_CONFIG),
+	/* D2  : NC */
+	PAD_NC_LOCK(GPP_D2, NONE, LOCK_CONFIG),
+	/* D3  : NC */
+	PAD_NC_LOCK(GPP_D3, NONE, LOCK_CONFIG),
+	/* D4  : IMGCLKOUT0 ==> BT_DISABLE_L */
+	PAD_CFG_GPO(GPP_D4, 1, DEEP),
+	/* D5  : NC */
+	PAD_NC(GPP_D5, NONE),
+	/* D6  : NC */
+	PAD_NC(GPP_D6, NONE),
+	/* D7  : SRCCLKREQ2# ==> SSD_CLKREQ_ODL */
+	PAD_CFG_NF(GPP_D7, NONE, DEEP, NF1),
+	/* D8  : SRCCLKREQ3# ==> NC */
+	PAD_NC(GPP_D8, NONE),
+	/* D9  : NC */
+	PAD_NC_LOCK(GPP_D9, NONE, LOCK_CONFIG),
+	/* D10 : ISH_SPI_CLK ==> GPP_D10_STRAP */
+	PAD_NC_LOCK(GPP_D10, NONE, LOCK_CONFIG),
+	/* D11 : EN_PP3300_SSD */
+	PAD_NC_LOCK(GPP_D11, NONE, LOCK_CONFIG),
+	/* D12 : ISH_SPI_MOSI ==> GPP_D12_STRAP */
+	PAD_NC_LOCK(GPP_D12, NONE, LOCK_CONFIG),
+	/* D13 : NC */
+	PAD_NC_LOCK(GPP_D13, NONE, LOCK_CONFIG),
+	/* D14 : NC */
+	PAD_NC_LOCK(GPP_D14, NONE, LOCK_CONFIG),
+	/* D15 : NC */
+	PAD_NC_LOCK(GPP_D15, NONE, LOCK_CONFIG),
+	/* D16 : NC */
+	PAD_NC_LOCK(GPP_D16, NONE, LOCK_CONFIG),
+	/* D17 : NC */
+	PAD_NC_LOCK(GPP_D17, NONE, LOCK_CONFIG),
+	/* D18 : NC */
+	PAD_NC_LOCK(GPP_D18, NONE, LOCK_CONFIG),
+	/* D19 : I2S_MCLK1_OUT ==> I2S_MCLK_R */
+	PAD_CFG_NF(GPP_D19, NONE, DEEP, NF1),
+
+	/* E0  : NC */
+	PAD_NC(GPP_E0, NONE),
+	/* E1  : THC0_SPI1_IO2 ==> MEM_STRAP_0 */
+	PAD_CFG_GPI_LOCK(GPP_E1, NONE, LOCK_CONFIG),
+	/* E2  : THC0_SPI1_IO3 ==> MEM_STRAP_1 */
+	PAD_CFG_GPI_LOCK(GPP_E2, NONE, LOCK_CONFIG),
+	/* E3  : PROC_GP0 ==> MEM_STRAP_2 */
+	PAD_CFG_GPI(GPP_E3, NONE, DEEP),
+	/* E4  : NC */
+	PAD_NC(GPP_E4, NONE),
+	/* E5  : NC */
+	PAD_NC(GPP_E5, NONE),
+	/* E6  : THC0_SPI1_RST# ==> GPP_E6_STRAP */
+	PAD_NC_LOCK(GPP_E6, NONE, LOCK_CONFIG),
+	/* E7  : NC */
+	PAD_NC(GPP_E7, NONE),
+	/* E8  : GPP_E8 ==> WLAN_DISABLE_L */
+	PAD_CFG_GPO(GPP_E8, 1, DEEP),
+	/* E9  : NC */
+	PAD_NC_LOCK(GPP_E9, NONE, LOCK_CONFIG),
+	/* E10 : NC */
+	PAD_NC_LOCK(GPP_E10, NONE, LOCK_CONFIG),
+	/* E11 : NC */
+	PAD_NC_LOCK(GPP_E11, NONE, LOCK_CONFIG),
+	/* E12 : THC0_SPI1_IO1 ==> SOC_WP_OD */
+	PAD_CFG_GPI_GPIO_DRIVER_LOCK(GPP_E12, NONE, LOCK_CONFIG),
+	/* E13 : NC */
+	PAD_NC_LOCK(GPP_E13, NONE, LOCK_CONFIG),
+	/* E14 : DDSP_HPDA ==> EDP_HPD */
+	PAD_CFG_NF(GPP_E14, NONE, DEEP, NF1),
+	/* E15 : NC */
+	PAD_NC(GPP_E15, NONE),
+	/* E16 : NC */
+	PAD_NC(GPP_E16, NONE),
+	/* E17 : SSD_PLN_L */
+	PAD_NC_LOCK(GPP_E17, NONE, LOCK_CONFIG),
+	/* E18 : NC */
+	PAD_NC(GPP_E18, NONE),
+	/* E19 : DDP1_CTRLDATA ==> GPP_E19_STRAP */
+	PAD_NC(GPP_E19, NONE),
+	/* E20 : DDP2_CTRLCLK ==> HDMI_DDC_SCL */
+	PAD_CFG_NF(GPP_E20, NONE, DEEP, NF1),
+	/* E21 : DDP2_CTRLDATA ==> HDMI_DDC_SDA_STRAP */
+	PAD_CFG_NF(GPP_E21, NONE, DEEP, NF1),
+	/* E22 : DDPA_CTRLCLK ==> NC */
+	PAD_NC(GPP_E22, NONE),
+	/* E23 : DDPA_CTRLDATA ==> NC */
+	PAD_NC(GPP_E23, NONE),
+
+	/* F0  : CNV_BRI_DT ==> CNV_BRI_DT_STRAP */
+	PAD_CFG_NF(GPP_F0, NONE, DEEP, NF1),
+	/* F1  : CNV_BRI_RSP ==> CNV_BRI_RSP */
+	PAD_CFG_NF(GPP_F1, UP_20K, DEEP, NF1),
+	/* F2  : CNV_RGI_DT ==> CNV_RGI_DT_STRAP */
+	PAD_CFG_NF(GPP_F2, NONE, DEEP, NF1),
+	/* F3  : CNV_RGI_RSP ==> CNV_RGI_RSP */
+	PAD_CFG_NF(GPP_F3, UP_20K, DEEP, NF1),
+	/* F4  : CNV_RF_RESET# ==> CNV_RF_RST_L */
+	PAD_CFG_NF(GPP_F4, NONE, DEEP, NF1),
+	/* F5  : CRF_XTAL_CLKREQ ==> CNV_CLKREQ0 */
+	PAD_CFG_NF(GPP_F5, NONE, DEEP, NF3),
+	/* F6  : CNV_PA_BLANKING ==> WLAN_WWAN_COEX_3 */
+	PAD_CFG_NF(GPP_F6, NONE, DEEP, NF1),
+	/* F7  : GPP_F7 ==> GPP_F7_STRAP */
+	PAD_NC(GPP_F7, NONE),
+	/* F8  : Not available */
+	PAD_NC(GPP_F8, NONE),
+	/* F9  : Not available */
+	PAD_NC(GPP_F9, NONE),
+	/* F10 : GPP_F10 ==> GPP_F10_STRAP */
+	PAD_NC(GPP_F10, NONE),
+	/* F11 : NC */
+	PAD_NC_LOCK(GPP_F11, NONE, LOCK_CONFIG),
+	/* F12 : NC */
+	PAD_NC_LOCK(GPP_F12, NONE, LOCK_CONFIG),
+	/* F13 : NC */
+	PAD_NC_LOCK(GPP_F13, NONE, LOCK_CONFIG),
+	/* F14 : GSXDIN ==> TCHPAD_INT_ODL */
+	PAD_CFG_GPI_IRQ_WAKE(GPP_F14, NONE, PWROK, LEVEL, INVERT),
+	/* F15 : NC */
+	PAD_NC_LOCK(GPP_F15, NONE, LOCK_CONFIG),
+	/* F16 : NC */
+	PAD_NC_LOCK(GPP_F16, NONE, LOCK_CONFIG),
+	/* F17 : THC1_SPI2_RST# ==> EC_SOC_WAKE_ODL */
+	PAD_CFG_GPI_IRQ_WAKE(GPP_F17, NONE, PWROK, EDGE_SINGLE, INVERT),
+	/* F18 : THC1_SPI2_INT# ==> EC_IN_RW_OD */
+	PAD_CFG_GPI_LOCK(GPP_F18, NONE, LOCK_CONFIG),
+	/* F19 : Not available */
+	PAD_NC(GPP_F19, NONE),
+	/* F20 : Not available */
+	PAD_NC(GPP_F20, NONE),
+	/* F21 : Not available */
+	PAD_NC(GPP_F21, NONE),
+	/* F22 : NC */
+	PAD_NC(GPP_F22, NONE),
+	/* F23 : V1P05_CTRL ==> V1P05EXT_CTRL */
+	PAD_CFG_NF(GPP_F23, NONE, DEEP, NF1),
+
+	/* H0  : GPP_H0_STRAP */
+	PAD_NC(GPP_H0, NONE),
+	/* H1  : GPP_H1_STRAP */
+	PAD_NC(GPP_H1, NONE),
+	/* H2  : GPP_H2_STRAP */
+	PAD_NC(GPP_H2, NONE),
+	/* H3  : SX_EXIT_HOLDOFF# ==> WLAN_PCIE_WAKE_ODL */
+	PAD_CFG_GPI_SCI_LOW_LOCK(GPP_H3, NONE, EDGE_SINGLE, LOCK_CONFIG),
+	/* H4  : I2C0_SDA ==> SOC_I2C_GSC_SDA */
+	PAD_CFG_NF_LOCK(GPP_H4, NONE, NF1, LOCK_CONFIG),
+	/* H5  : I2C0_SCL ==> SOC_I2C_GSC_SCL */
+	PAD_CFG_NF_LOCK(GPP_H5, NONE, NF1, LOCK_CONFIG),
+	/* H6  : I2C1_SDA ==> NC */
+	PAD_NC(GPP_H6, NONE),
+	/* H7  : I2C1_SCL ==> NC */
+	PAD_NC(GPP_H7, NONE),
+	/* H8  : CNV_MFUART2_RXD ==> WLAN_WWAN_COEX_1 */
+	PAD_CFG_NF(GPP_H8, NONE, DEEP, NF2),
+	/* H9  : CNV_MFUART2_TXD ==> WLAN_WWAN_COEX_2 */
+	PAD_CFG_NF(GPP_H9, NONE, DEEP, NF2),
+	/* H10 : UART0_RXD ==> UART_SOC_RX_DBG_TX (Debug COM1) */
+	PAD_CFG_NF(GPP_H10, NONE, DEEP, NF2),
+	/* H11 : UART0_TXD ==> UART_SOC_TX_DBG_RX (Debug COM1) */
+	PAD_CFG_NF(GPP_H11, NONE, DEEP, NF2),
+	/* H12 : UART0_RTS# ==> NC */
+	PAD_NC_LOCK(GPP_H12, NONE, LOCK_CONFIG),
+	/* H13 : UART0_CTS# ==> NC */
+	PAD_NC_LOCK(GPP_H13, NONE, LOCK_CONFIG),
+	/* H14 : Not available */
+	PAD_NC(GPP_H14, NONE),
+	/* H15 : NC */
+	PAD_NC(GPP_H15, NONE),
+	/* H16 : Not available */
+	PAD_NC(GPP_H16, NONE),
+	/* H17 : NC */
+	PAD_NC(GPP_H17, NONE),
+	/* H18 : PROC_C10_GATE# ==> CPU_C10_GATE_L */
+	PAD_CFG_NF(GPP_H18, NONE, DEEP, NF1),
+	/* H19 : SRCCLKREQ4# ==> NC */
+	PAD_NC(GPP_H19, NONE),
+	/* H20 : IMGCLKOUT1 ==> WLAN_PERST_L */
+	PAD_CFG_GPO(GPP_H20, 1, DEEP),
+	/* H21 : NC */
+	PAD_NC(GPP_H21, NONE),
+	/* H22 : IMGCLKOUT3 ==> NC */
+	PAD_NC(GPP_H22, NONE),
+	/* H23 : GPP_H23 ==> NC */
+	PAD_NC(GPP_H23, NONE),
+
+	/* R0  : I2S0_SCLK ==> I2S_HP_BCLK_R */
+	PAD_CFG_NF(GPP_R0, NONE, DEEP, NF2),
+	/* R1  : I2S0_SFRM ==> I2S_HP_LRCK_R */
+	PAD_CFG_NF(GPP_R1, NONE, DEEP, NF2),
+	/* R2  : I2S0_TXD ==> I2S_HP_AUDIO_STRAP */
+	PAD_CFG_NF(GPP_R2, NONE, DEEP, NF2),
+	/* R3  : I2S0_RXD ==> I2S_HP_MIC */
+	PAD_CFG_NF(GPP_R3, NONE, DEEP, NF2),
+	/* R4  : DMIC_CLK_A_0A ==> DMIC_CLK_R */
+	PAD_CFG_NF(GPP_R4, NONE, DEEP, NF3),
+	/* R5  : DMIC_DATA_0A ==> DMIC_DATA */
+	PAD_CFG_NF(GPP_R5, NONE, DEEP, NF3),
+	/* R6  : DMIC_CLK_A_1A ==> NC */
+	PAD_NC(GPP_R6, NONE),
+	/* R7  : DMIC_DATA_1A ==> NC */
+	PAD_NC(GPP_R7, NONE),
+
+	/* S0  : I2S1_SCLK ==> I2S_SPK_BCLK_R */
+	PAD_CFG_NF(GPP_S0, NONE, DEEP, NF4),
+	/* S1  : I2S1_SFRM ==> I2S_SPK_LRCK_R */
+	PAD_CFG_NF(GPP_S1, NONE, DEEP, NF4),
+	/* S2  : I2S1_TXD ==> I2S_SPK_AUDIO_R */
+	PAD_CFG_NF(GPP_S2, NONE, DEEP, NF4),
+	/* S3  : I2S1_RXD ==> NC */
+	PAD_NC(GPP_S3, NONE),
+	/* S4  : NC */
+	PAD_NC(GPP_S4, NONE),
+	/* S5  : NC */
+	PAD_NC(GPP_S5, NONE),
+	/* S6  : NC */
+	PAD_NC(GPP_S6, NONE),
+	/* S7  : NC */
+	PAD_NC(GPP_S7, NONE),
+
+	/* I5  : NC (no eMMC) */
+	PAD_NC(GPP_I5, NONE),
+	/* I7..I18 : eMMC pins disabled (no eMMC on MBX222) */
+	PAD_NC(GPP_I7, NONE),
+	PAD_NC(GPP_I8, NONE),
+	PAD_NC(GPP_I9, NONE),
+	PAD_NC(GPP_I10, NONE),
+	PAD_NC(GPP_I11, NONE),
+	PAD_NC(GPP_I12, NONE),
+	PAD_NC(GPP_I13, NONE),
+	PAD_NC(GPP_I14, NONE),
+	PAD_NC(GPP_I15, NONE),
+	PAD_NC(GPP_I16, NONE),
+	PAD_NC(GPP_I17, NONE),
+	PAD_NC(GPP_I18, NONE),
+
+	/* GPD0  : BATLOW# ==> SOC_BATLOW_L */
+	PAD_CFG_NF(GPD0, NONE, DEEP, NF1),
+	/* GPD1  : ACPRESENT ==> SOC_ACPRESENT */
+	PAD_CFG_NF(GPD1, NONE, DEEP, NF1),
+	/* GPD2  : EC_SOC_INT_ODL (eSPI VW) */
+	PAD_CFG_GPI_APIC(GPD2, NONE, PLTRST, LEVEL, INVERT),
+	/* GPD3  : PWRBTN# ==> EC_SOC_PWR_BTN_ODL */
+	PAD_CFG_NF(GPD3, NONE, DEEP, NF1),
+	/* GPD4  : SLP_S3# ==> SLP_S3_L */
+	PAD_CFG_NF(GPD4, NONE, DEEP, NF1),
+	/* GPD5  : SLP_S4# ==> SLP_S4_L */
+	PAD_CFG_NF(GPD5, NONE, DEEP, NF1),
+	/* GPD6  : SLP_A# ==> NC */
+	PAD_NC(GPD6, NONE),
+	/* GPD7  : GPD7_STRAP */
+	PAD_NC(GPD7, NONE),
+	/* GPD8  : SUSCLK ==> PCH_SUSCLK */
+	PAD_CFG_NF(GPD8, NONE, DEEP, NF1),
+	/* GPD9  : NC */
+	PAD_NC(GPD9, NONE),
+	/* GPD10 : SLP_S5# ==> NC */
+	PAD_NC(GPD10, NONE),
+	/* GPD11 : NC */
+	PAD_NC(GPD11, NONE),
+
+	/* Configure the unused virtual CNVi Bluetooth UART pads to NC mode. */
+	PAD_NC(GPP_VGPIO_6, NONE),
+	PAD_NC(GPP_VGPIO_7, NONE),
+	PAD_NC(GPP_VGPIO_8, NONE),
+	PAD_NC(GPP_VGPIO_9, NONE),
+
+	/* Configure the unused vUART for Bluetooth pads to NC mode. */
+	PAD_NC(GPP_VGPIO_18, NONE),
+	PAD_NC(GPP_VGPIO_19, NONE),
+	PAD_NC(GPP_VGPIO_20, NONE),
+	PAD_NC(GPP_VGPIO_21, NONE),
+};
+
+/* Early pad configuration in bootblock */
+static const struct pad_config early_gpio_table[] = {
+	/* A13 : GPP_A13 ==> EC_SCI_L */
+	PAD_CFG_GPI_APIC(GPP_A13, NONE, PLTRST, LEVEL, INVERT),
+	/* E12 : THC0_SPI1_IO1 ==> SOC_WP_OD */
+	PAD_CFG_GPI_GPIO_DRIVER(GPP_E12, NONE, DEEP),
+	/* F18 : THC1_SPI2_INT# ==> EC_IN_RW_OD */
+	PAD_CFG_GPI(GPP_F18, NONE, DEEP),
+	/* H4  : I2C0_SDA ==> SOC_I2C_GSC_SDA */
+	PAD_CFG_NF(GPP_H4, NONE, DEEP, NF1),
+	/* H5  : I2C0_SCL ==> SOC_I2C_GSC_SCL */
+	PAD_CFG_NF(GPP_H5, NONE, DEEP, NF1),
+	/* H10 : UART0_RXD ==> UART_SOC_RX_DBG_TX (Debug COM1) */
+	PAD_CFG_NF(GPP_H10, NONE, DEEP, NF2),
+	/* H11 : UART0_TXD ==> UART_SOC_TX_DBG_RX (Debug COM1) */
+	PAD_CFG_NF(GPP_H11, NONE, DEEP, NF2),
+};
+
+const struct pad_config *__weak variant_gpio_table(size_t *num)
+{
+	*num = ARRAY_SIZE(gpio_table);
+	return gpio_table;
+}
+
+const struct pad_config *__weak variant_gpio_override_table(size_t *num)
+{
+	*num = 0;
+	return NULL;
+}
+
+const struct pad_config *__weak variant_early_gpio_table(size_t *num)
+{
+	*num = ARRAY_SIZE(early_gpio_table);
+	return early_gpio_table;
+}
+
+static const struct cros_gpio cros_gpios[] = {
+	CROS_GPIO_REC_AL(CROS_GPIO_VIRTUAL, CROS_GPIO_DEVICE_NAME),
+	CROS_GPIO_WP_AH(GPIO_PCH_WP, CROS_GPIO_DEVICE_NAME),
+};
+DECLARE_WEAK_CROS_GPIOS(cros_gpios);
+
+const struct pad_config *__weak variant_romstage_gpio_table(size_t *num)
+{
+	*num = 0;
+	return NULL;
+}

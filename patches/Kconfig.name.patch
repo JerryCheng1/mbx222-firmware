@@ -1,0 +1,13 @@
+diff --git a/src/mainboard/google/brya/Kconfig.name b/src/mainboard/google/brya/Kconfig.name
+index ORIGINAL..mbx222 100644
+--- a/src/mainboard/google/brya/Kconfig.name
++++ b/src/mainboard/google/brya/Kconfig.name
+@@ -56,6 +56,9 @@
+ config BOARD_GOOGLE_BANSHEE
+ 	bool "Banshee"
+ 
++config BOARD_GOOGLE_MBX222
++	bool "MBX222"
++
+ config BOARD_GOOGLE_NIVVIKS
+ 	bool "Nivviks"

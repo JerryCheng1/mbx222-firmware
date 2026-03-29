@@ -1,0 +1,233 @@
+chip soc/intel/alderlake
+
+	# Intel PCH-eSPI interface configuration for ITE IT5771E
+	# eSPI: GPP_A0(ESPI_IO0), A1(ESPI_IO1), A2(ESPI_IO2), A3(ESPI_IO3)
+	#       GPP_A4(ESPI_CS0#), A9(ESPI_CLK), A10(ESPI_RESET#)
+	register "common_soc_config" = "{
+		.espi_config = {
+			.enable = 1,
+			.io_mode = ESPI_IO_MODE_QUAD,
+			.freq_mhz = ESPI_FREQ_20_MHZ,
+		},
+	}"
+
+	# Power delivery configuration for Alder Lake N
+	# 6W TDP, 4-core (2P + 2E)
+	register "power_limits_config" = "{
+		.tdp_pl1_override = 6,
+		.tdp_pl2_override = 15,
+		.tdp_pl4 = 30,
+	}"
+	register "power_limits_config[ADL_N_041_6W_CORE]" = "{
+		.tdp_pl1_override = 6,
+		.tdp_pl2_override = 15,
+		.tdp_pl4 = 30,
+	}"
+
+	# Enable eSPI and configure for ITE IT5771E EC
+	register "SerialIoUartMode" = "{
+		[PchSerialIoIndex0] = PchSerialIoPci,
+		[PchSerialIoIndex1] = PchSerialIoDisabled,
+		[PchSerialIoIndex2] = PchSerialIoDisabled,
+	}"
+
+	# UART0 debug console at 0x3F8 (COM1)
+	register "SerialIoUartRxPinMux[0]" = "GPP_H10"
+	register "SerialIoUartTxPinMux[0]" = "GPP_H11"
+
+	# FSP configuration
+	# Memory: DDR4 SODIMM (not LP5X), single channel, half populated
+	register "SaGv" = "SaGv_Enabled"
+	register "HyperThreading" = "1"
+
+	# PCIe Root Port 9: NVMe SSD (maps to RP9 for ADL-N)
+	register "PcieRpEnable[8]" = "1"    # RP9 = index 8
+	register "PcieRpClkReqDetectEnable[8]" = "1"
+	register "PcieRpClkSrc[8]" = "1"    # SRCCLKREQ1
+	register "PcieRpClkReqNum[8]" = "2" # CLKREQ2
+	register "PcieRpAdvancedErrorReporting[8]" = "1"
+	register "PcieRpLtrEnable[8]" = "1"
+	register "PcieRpHotPlug[8]" = "0"
+
+	# Disable eMMC (not present on MBX222)
+	register "ScsEmmcHs400Enabled" = "0"
+
+	# SATA configuration - enable AHCI SATA port
+	register "SataEnable" = "1"
+	register "SataMode" = "KconfigSataAhci"
+	register "SataPortsEnable[0]" = "1"
+	register "SataPortsDevSlp[0]" = "0"
+
+	# CNVi WiFi - onboard WLAN via CNVi interface
+	register "CnviBtCore" = "1"
+	register "CnviBtAudioOffload" = "1"
+	register "CnviWtCore" = "1"
+
+	# USB configuration
+	register "usb2_ports[0]" = "USB2_PORT_TYPE_C(OC_SKIP)"  # Type-C Port 0
+	register "usb2_ports[1]" = "USB2_PORT_TYPE_C(OC_SKIP)"  # Type-C Port 1
+	register "usb2_ports[2]" = "USB2_PORT_MID(OC_SKIP)"     # USB3 Type-A
+	register "usb2_ports[3]" = "USB2_PORT_MID(OC_SKIP)"     # USB3 Type-A
+	register "usb2_ports[4]" = "USB2_PORT_MID(OC_SKIP)"     # USB2 Type-A
+	register "usb2_ports[5]" = "USB2_PORT_EMPTY"
+	register "usb2_ports[6]" = "USB2_PORT_EMPTY"
+	register "usb2_ports[7]" = "USB2_PORT_EMPTY"
+
+	register "usb3_ports[0]" = "USB3_PORT_DEFAULT(OC_SKIP)" # USB3 Type-A
+	register "usb3_ports[1]" = "USB3_PORT_DEFAULT(OC_SKIP)" # USB3 Type-A
+
+	# TCSS USB-C configuration
+	register "TcssAuxOri" = "1"
+	register "TcssHslOri" = "1"
+
+	# eDP / HDMI display
+	register "DdiPortAConfig" = "DDI_PORT_CFG_EDP"
+	register "DdiPortBHpd" = "1"
+	register "DdiPortCHpd" = "0"
+	register "DdiPortBDdc" = "1"
+	register "DdiPortCDdc" = "0"
+
+	# VMD disable (using native NVMe)
+	register "VmdEnable" = "0"
+
+	# PCH config
+	register "PchPmSlpS3MinAssert" = "3"   # 50ms
+	register "PchPmSlpS4MinAssert" = "1"   # 1s
+	register "PchPmSlpSusMinAssert" = "3"  # 500ms
+	register "PchPmSlpAMinAssert" = "3"    # 2s
+
+	# Lock down configuration
+	register "PchLockDownGlobalSmi" = "1"
+	register "PchLockDownBiosInterface" = "1"
+	register "PchLockDownRtcLock" = "1"
+
+device domain 0 on
+	device ref igpu on end
+	device ref dtt on end
+	device ref tbt_pcie_rp0 off end
+	device ref tbt_pcie_rp1 off end
+	device ref tbt_pcie_rp2 off end
+	device ref tbt_dma0 off end
+	device ref tcss_dma0 off end
+	device ref tcss_xhci on end
+	device ref tcssXdci on end
+
+	# PCIe Root Port 9: NVMe SSD
+	device ref pcie_rp9 on end
+
+	# PCIe Root Port 3: WLAN (CNVi WiFi, uses CNVi RF)
+	device ref pcie_rp3 on
+		chip drivers/wifi/generic
+			register "wake" = "GPE0_DW0_03"
+			device pci 00.0 on end
+		end
+	end
+
+	# PCIe Root Port 5: unused
+	device ref pcie_rp5 off end
+	# PCIe Root Port 6: unused
+	device ref pcie_rp6 off end
+	# PCIe Root Port 7: unused
+	device ref pcie_rp7 off end
+
+	# SATA AHCI controller
+	device ref sata on end
+
+	# eMMC - disabled (not present on MBX222)
+	device ref emmc off end
+
+	# SD Card - disabled
+	device ref sd off end
+
+	# Audio: HDA / HD Audio Subsystem
+	device ref hda on
+		chip drivers/intel/soundwire
+			device generic 0 on end
+		end
+	end
+
+	# Intel IPU (Image Processing Unit) - disabled
+	device ref ipu off end
+
+	# CNVi WiFi
+	device ref cnvi_wifi on
+		chip drivers/wifi/generic
+			register "wake" = "GPE0_DW0_03"
+			device pci 00.0 on end
+		end
+	end
+
+	# PCIe Root Port 1: unused
+	device ref pcie_rp1 off end
+	# PCIe Root Port 2: unused
+	device ref pcie_rp2 off end
+
+	# XHCI (USB 3.0)
+	device ref xhci on end
+
+	# DMA / Thermal
+	device ref thermal on end
+
+	# SerialIO I2C0: TPM
+	device ref i2c0 on end
+	# SerialIO I2C1: unused
+	device ref i2c1 off end
+	# SerialIO I2C2: Sub board
+	device ref i2c2 on end
+	# SerialIO I2C3: Audio
+	device ref i2c3 on end
+
+	# SerialIO SPI0: Touchscreen
+	device ref spi0 off end
+	# SerialIO SPI1: FP sensor
+	device ref spi1 off end
+	# SerialIO SPI2: unused
+	device ref spi2 off end
+
+	# UART0: Debug Console (COM1 @ 0x3F8)
+	device ref uart0 on end
+
+	# UART1: unused
+	device ref uart1 off end
+
+	# GNA (Gaussian Neural Accelerator) - disabled
+	device ref gna off end
+
+	# PMC
+	device ref pmc hidden end
+
+	# SMBus - disabled (no devices)
+	device ref smbus off end
+
+	# Fast SPI - for BIOS flash
+	device ref fast_spi on end
+
+end # domain 0
+
+device ref lpc_espi on
+	# ITE IT5771E EC via eSPI
+	# EC configuration port: 0x4EEC, I/O base: 0x0A00
+	# This replaces the ChromeEC chip definition
+	chip superio/ite/it5771e
+		register "com1_enable" = "1"  # Enable COM1 debug UART
+		register "kbc_enable" = "1"   # Enable keyboard controller
+		register "ec_enable" = "1"    # Enable EC interface
+		device pnp 4e.0   off end  # Special configurations
+		device pnp 4e.1   on      # COM1 (serial port 1)
+			io 0x60 = 0x3f8
+			irq 0x70 = 4
+		end
+		device pnp 4e.6   on      # Keyboard Controller
+			io 0x60 = 0x60
+			io 0x62 = 0x64
+			irq 0x70 = 1
+			irq 0x72 = 12
+		end
+		device pnp 4e.11  on end  # Embedded Controller
+		device pnp 4e.14  on end  # Watchdog Timer
+		device pnp 4e.15  off end # PECI
+		device pnp 4e.19  on end  # Power Management
+	end
+end # lpc_espi
+
+end # chip soc/intel/alderlake

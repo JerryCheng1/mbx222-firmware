@@ -1,0 +1,34 @@
+diff --git a/src/mainboard/google/brya/Kconfig b/src/mainboard/google/brya/Kconfig
+index ORIGINAL..mbx222 100644
+--- a/src/mainboard/google/brya/Kconfig
++++ b/src/mainboard/google/brya/Kconfig
+@@ -400,6 +400,26 @@
+ 
+ endif # BOARD_GOOGLE_BANSHEE
+ 
++config BOARD_GOOGLE_MBX222
++	bool "->  MBX222 (Alder Lake N, ITE IT5771E EC)"
++	select BOARD_GOOGLE_BASEBOARD_BRYA
++	select CHROMEOS
++	select DRIVERS_INTEL_DPTC_SUPPORT
++	select DRIVERS_I2C_GENERIC
++	select DRIVERS_USB_ACPI
++	select EC_GOOGLE_CHROMEEC
++	select EC_GOOGLE_CHROMEEC_ESPI
++	select HAVE_WWAN_POWER_SEQUENCE
++	select MAINBOARD_HAS_CHROMEOS_DYNAMIC
++	select MEMORY_SODIMM
++	select SOC_INTEL_ALDERLAKE
++	select SOC_INTEL_COMMON_BLOCK_HDA
++	select SUPERIO_ITE_IT5771E
++	select SYSTEM_TYPE_LAPTOP
++	select TPM_GOOGLE_TI50
++	select USE_SAR
++	select VBOOT
++	help
++	  MBX222 board based on Alder Lake N with ITE IT5771E EC via eSPI,
++	  DDR4 SODIMM, 1x NVMe, 1x SATA, onboard CNVi WLAN.
++
+ config BOARD_GOOGLE_NIVVIKS
+ 	bool "->  Nivviks"
+ 	select BOARD_GOOGLE_BASEBOARD_BRYA
