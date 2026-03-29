@@ -151,6 +151,19 @@ echo "Coreboot dir:   ${COREBOOT_DIR}"
 echo "Jobs:           ${JOBS}"
 echo ""
 
+# Auto-clone coreboot if not present
+if [ ! -d "${COREBOOT_DIR}" ]; then
+	echo "Coreboot tree not found at ${COREBOOT_DIR}"
+	echo "Cloning coreboot repository..."
+	git clone https://review.coreboot.org/coreboot.git "${COREBOOT_DIR}"
+	if [ $? -ne 0 ]; then
+		echo "ERROR: Failed to clone coreboot"
+		exit 1
+	fi
+	echo "Coreboot cloned successfully."
+	echo ""
+fi
+
 if [ ! -f "${COREBOOT_DIR}/Makefile" ]; then
 	echo "ERROR: ${COREBOOT_DIR} does not appear to be a valid coreboot tree"
 	echo "Hint: clone coreboot to ../coreboot or specify --coreboot-path"
@@ -161,6 +174,43 @@ if [ ! -d "${COREBOOT_DIR}/src/mainboard/google/brya" ]; then
 	echo "ERROR: brya mainboard not found in ${COREBOOT_DIR}"
 	exit 1
 fi
+
+# Auto-initialize submodules (especially tianocore for UEFI payload)
+echo "Checking submodules..."
+cd "${COREBOOT_DIR}"
+
+# Initialize and update all submodules if .gitmodules exists
+if [ -f ".gitmodules" ]; then
+	# Check if submodules are already initialized
+	SUBMODULES_NEED_INIT=0
+
+	# Check critical submodules
+	for sub in 3rdparty/tianocore 3rdparty/vboot 3rdparty/libgfxinit 3rdparty/libhwbase; do
+		if [ -f ".gitmodules" ] && grep -q "${sub}" .gitmodules 2>/dev/null; then
+			if [ ! -f "${sub}/.git" ] && [ ! -f "${sub}/Makefile" ]; then
+				echo "  Submodule ${sub} needs initialization"
+				SUBMODULES_NEED_INIT=1
+			fi
+		fi
+	done
+
+	if [ "${SUBMODULES_NEED_INIT}" = "1" ]; then
+		echo "Initializing submodules (this may take a while)..."
+		git submodule update --init --checkout 2>&1 || {
+			echo "WARNING: Full submodule update failed, trying critical ones individually..."
+			git submodule update --init --checkout 3rdparty/vboot 2>&1 || true
+			git submodule update --init --checkout 3rdparty/tianocore 2>&1 || true
+			git submodule update --init --checkout 3rdparty/libgfxinit 2>&1 || true
+			git submodule update --init --checkout 3rdparty/libhwbase 2>&1 || true
+		}
+		echo "Submodules initialized."
+	else
+		echo "  All critical submodules present."
+	fi
+fi
+
+cd "${PROJECT_DIR}"
+echo ""
 
 # ============================================================
 # Clean-only mode

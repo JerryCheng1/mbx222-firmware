@@ -174,11 +174,19 @@ sudo apt install build-essential gcc g++ cmake ninja-build iasl python3 \
 
 ### 2. 准备 coreboot 源码树
 
+**方式一（推荐）：** 直接运行 `build.sh`，脚本会自动克隆 coreboot 并初始化 TianoCore 等子模块：
+
+```bash
+./scripts/build.sh
+```
+
+**方式二：** 手动克隆：
+
 ```bash
 # 克隆 coreboot（如果还没有）
 git clone https://review.coreboot.org/coreboot.git ../coreboot
 cd ../coreboot
-git submodule update --init --checkout  # 获取 3rdparty 子模块
+git submodule update --init --checkout  # 获取 3rdparty 子模块（含 TianoCore）
 ```
 
 FSP 已包含在本项目的 `3rdparty/fsp/AlderLakeN/` 目录中（来自 [Intel FSP GitHub](https://github.com/intel/FSP/tree/master/AlderLakeFspBinPkg/IoT/AlderLakeN)），无需额外下载。
@@ -242,15 +250,15 @@ cd ../mbx222-firmware
 ./scripts/build.sh clean
 ```
 
-### 使用 UEFI Payload (TianoCore)
+### Payload 说明
 
-如需生成完整的 UEFI BIOS 固件：
+本项目默认使用 **TianoCore** (UEFI payload)，`defconfig` 中已配置：
 
-```bash
-# 在 defconfig 中启用 TianoCore payload
-echo "CONFIG_PAYLOAD_TIANOCORE=y" >> defconfig
-./scripts/build.sh
 ```
+CONFIG_PAYLOAD_TIANOCORE=y
+```
+
+如需切换为其他 payload（如 SeaBIOS），修改 `defconfig` 中的对应配置后重新编译即可。
 
 ## 调试
 
