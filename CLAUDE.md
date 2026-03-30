@@ -260,7 +260,7 @@ coreboot/
 | Nissa variant (baseboard) | `src/mainboard/google/brya/variants/baseboard/nissa/` |
 | Brya parent board | `src/mainboard/google/brya/` |
 | Google Nissa (ChromeOS) | https://chromium.googlesource.com/chromiumos/third_party/coreboot/ |
-| Alder Lake-N FSP | Intel FSP-M/S for ADL-N (download from Intel) |
+| Alder Lake-N FSP | https://github.com/intel/FSP (AlderLakeN FSP binaries) |
 | IT5571E datasheet | Contact ITE Tech Inc. (https://www.ite.com.tw/) |
 | ITE EC SDK | ITEEC.mak + Keil project (reference only) |
 
