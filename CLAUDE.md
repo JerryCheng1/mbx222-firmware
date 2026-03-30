@@ -318,28 +318,35 @@ coreboot/3rdparty/fsp/AlderLakeN/FspS.fd
 
 ### VBT (Video BIOS Table) Setup
 
-VBT is the platform-specific display configuration blob (eDP/HDMI timing, panel info).
-ADL-N requires a **Dedicated ADL-N VBT bin**, not a generic one.
+VBT (Video BIOS Table) is the platform-specific display configuration blob (eDP/HDMI
+timing, panel info). For Alder Lake-N it is included in the FSP package at:
 
-```bash
-# 1. Clone Intel graphics bin repo
-git clone https://github.com/intel/VideoBiosBinaries.git
-
-# 2. Find ADL-N specific VBT
-ls VideoBiosBinaries/ | grep -i "adl\|nissa\|nivviks"
-
-# 3. Copy VBT to coreboot board directory
-#    coreboot will embed it into CBFS during build
+```
+https://github.com/intel/FSP/tree/master/AlderLakeFspBinPkg/IoT/AlderLakeN
 ```
 
-VBT file location in coreboot (per board):
+VBT filename for ADL-N typically contains "ADLN" or "AlderLakeN" in the filename.
+
+```bash
+# 1. After cloning the Intel FSP repo (see FSP setup above)
+# 2. Find VBT file in the ADL-N directory
+ls /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.bin
+#   or
+ls /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.vbt
+
+# 3. Copy VBT to coreboot board directory (coreboot embeds it into CBFS)
+cp /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.bin \
+      coreboot/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt
+```
+
+VBT file location in coreboot:
 ```
 coreboot/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt
 ```
 
 > **Important:** Use the ADL-N-specific VBT binary. Using a VBT from a different
 > platform (e.g., ADL-P, ADL-M) will cause display initialization failures or
-> incorrect panel timing. VBT filename typically contains "ADLN" or platform codename.
+> incorrect panel timing.
 
 ---
 
