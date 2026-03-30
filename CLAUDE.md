@@ -101,27 +101,29 @@ SUPPORT_LPC_BUS_1_8V        TRUE
 
 ```
 coreboot/
-└── src/
-    └── mainboard/
-        └── google/
-            ├── nissa/           ← Target board (parent)
-            │   ├── boardinfo.cb
-            │   ├── config
-            │   ├── devicetree.cb
-            │   ├── gpio.c
-            │   ├── acpi/
-            │   └── variant/
-            └── nivviks/          ← Reference variant (coreboot tree)
-                ├── boardinfo.cb
-                ├── config
-                ├── devicetree.cb
-                ├── gpio.c
-                ├── acpi/
-                └── variant/
+└── src/mainboard/google/brya/         ← Parent board: Brya
+    ├── variants/
+    │   ├── nivviks/                  ← Reference variant (coreboot main)
+    │   │   ├── boardinfo.cb
+    │   │   ├── config
+    │   │   ├── devicetree.cb
+    │   │   ├── gpio.c
+    │   │   ├── acpi/
+    │   │   └── variant/             ← Variant-specific overrides
+    │   └── baseboard/
+    │       └── nissa/               ← Target board (coreboot main)
+    │           ├── boardinfo.cb
+    │           ├── config
+    │           ├── devicetree.cb
+    │           ├── gpio.c
+    │           ├── acpi/
+    │           └── variant/         ← Nissa-specific overrides
+    └── (parent board files: brya/)
 ```
 
-> Nivviks is a sub-variant in the coreboot tree. Nissa is the parent board.
-> Reference Nivviks board files when creating Nissa port, override where needed.
+> Brya is the parent board. Nivviks and Nissa are sibling variants under `brya/variants/`.
+> Both share the same Brya parent board files. Reference Nivviks when creating Nissa port,
+> override where hardware differences exist.
 
 ---
 
@@ -129,7 +131,7 @@ coreboot/
 
 ### Phase 1: Information Gathering
 - [ ] Confirm Alder Lake-N SKU (e.g., Intel N100, N200, i3-N305, N5105)
-- [ ] Get Nivviks board files from coreboot tree (`src/mainboard/google/nivviks/`)
+- [ ] Get Nivviks board files from coreboot tree (`src/mainboard/google/brya/variants/nivviks/`)
 - [ ] Get Google Nissa ChromeOS board files (schematics if available)
 - [ ] Verify Nissa vs Nivviks hardware differences (GPIO, peripherals, memory)
 - [ ] Confirm BIOS chip: size and type (SST/Winbond SPI flash, e.g., 8MB/16MB)
@@ -154,8 +156,8 @@ coreboot/
 
 ### Phase 3: coreboot Base Port
 - [ ] Clone coreboot: `git clone https://review.coreboot.org/coreboot`
-- [ ] Create nissa board: `mkdir -p src/mainboard/google/nissa/`
-- [ ] Reference Nivviks, adapt:
+- [ ] Create nissa board variant: `mkdir -p src/mainboard/google/brya/variants/baseboard/nissa/`
+- [ ] Reference Nivviks variant (`brya/variants/nivviks/`), adapt:
   - [ ] boardinfo.cb
   - [ ] config (Kconfig)
   - [ ] devicetree.cb (GPIO pinmux)
@@ -203,7 +205,9 @@ coreboot/
 | Resource | Location |
 |----------|----------|
 | coreboot tree | https://review.coreboot.org/coreboot |
-| Nivviks board | `src/mainboard/google/nivviks/` |
+| Nivviks variant | `src/mainboard/google/brya/variants/nivviks/` |
+| Nissa variant (baseboard) | `src/mainboard/google/brya/variants/baseboard/nissa/` |
+| Brya parent board | `src/mainboard/google/brya/` |
 | Google Nissa (ChromeOS) | https://chromium.googlesource.com/chromiumos/third_party/coreboot/ |
 | Alder Lake-N FSP | Intel FSP-M/S for ADL-N (download from Intel) |
 | IT5571E datasheet | Contact ITE Tech Inc. (https://www.ite.com.tw/) |
