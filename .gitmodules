@@ -1,3 +1,0 @@
-[submodule "3rdparty/fsp/AlderLakeN"]
-	path = 3rdparty/fsp/AlderLakeN
-	url = https://github.com/intel/FSP.git
