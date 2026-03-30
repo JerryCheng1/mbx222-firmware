@@ -15,7 +15,7 @@ independently, referencing Xiaomi IT5571E EC code as architecture reference only
 | SoC | Intel Alder Lake-N (single-chip SiP, no discrete PCH) |
 | CPU | E-cores (Gracemont), or E-core + P-core combos |
 | TDP | 6W-15W (mobile/ultrabook segment) |
-| Memory | LPDDR5 or DDR5 (on-board, not SODIMM) |
+| Memory | LPDDR5 6400 on-board, 3 SKUs supported (see Memory section) |
 | Storage | NVMe (PCIe) + SATA (integrated in SoC) |
 | Boot | SPI flash (BIOS chip) |
 
@@ -29,7 +29,7 @@ independently, referencing Xiaomi IT5571E EC code as architecture reference only
 
 | Component | Details |
 |-----------|---------|
-| RAM | 2x LPDDR5 8GB (16GB total, on-board) |
+| RAM | 2x LPDDR5 6400 8GB, 3 SKUs (Micron/Samsung/Hynix, see below) |
 | NVMe | 1x M.2 PCIe x4 slot |
 | SATA | 1x SATA III slot |
 | WLAN | Intel CNVI (Wi-Fi, integrated in SoC) + PCIe WLAN Module |
@@ -97,57 +97,85 @@ SUPPORT_LPC_BUS_1_8V        TRUE
 
 ---
 
-## coreboot Board Structure
+## Memory SKU Detection via GPIO Strapping
 
-```
-coreboot/
-└── src/mainboard/google/brya/         ← Parent board: Brya
-    ├── variants/
-    │   ├── nivviks/                  ← Reference variant (coreboot main)
-    │   │   ├── boardinfo.cb
-    │   │   ├── config
-    │   │   ├── devicetree.cb
-    │   │   ├── gpio.c
-    │   │   ├── acpi/
-    │   │   └── variant/             ← Variant-specific overrides
-    │   └── baseboard/
-    │       └── nissa/               ← Target board (coreboot main)
-    │           ├── boardinfo.cb
-    │           ├── config
-    │           ├── devicetree.cb
-    │           ├── gpio.c
-    │           ├── acpi/
-    │           ├── memory.c         ← Memory SKU detection via GPIO
-    │           └── variant/         ← Nissa-specific overrides
-    └── (parent board files: brya/)
-```
+MBX222 Nissa uses **GPP_S4/S5/S6** for memory SKU detection. Three LPDDR5 8GB颗粒 are supported:
 
-> Brya is the parent board. Nivviks and Nissa are sibling variants under `brya/variants/`.
+| SKU ID | Memory Part | Vendor | Part Number |
+|--------|-----------|--------|-------------|
+| 0 | LPDDR5 6400 8GB | **Micron** | MT62F2G32D8DR-031 WT:B |
+| 1 | LPDDR5 6400 8GB | **Samsung** | K3LKCKC0BM-MGCP LF+HF |
+| 2 | LPDDR5 6400 8GB | **Hynix** | H9JCNNNFA5MLYR-N6E LF+HF |
+| 3-7 | Reserved | - | - |
 
-### Memory SKU Detection via GPIO Strapping
+GPIO strapping encoding (S4=bit0, S5=bit1, S6=bit2, pull-down default=0):
 
-Nissa implements GPIO-based memory SKU detection in `memory.c`:
+| GPP_S6 | GPP_S5 | GPP_S4 | SKU ID | Memory |
+|--------|--------|--------|--------|--------|
+| 0 | 0 | 0 | 0 | Micron MT62F2G32D8DR-031 |
+| 0 | 0 | 1 | 1 | Samsung K3LKCKC0BM-MGCP |
+| 0 | 1 | 0 | 2 | Hynix H9JCNNNFA5MLYR-N6E |
+| 0 | 1 | 1 | 3 | Reserved |
+| 1 | 0 | 0 | 4 | Reserved |
+| 1 | 0 | 1 | 5 | Reserved |
+| 1 | 1 | 0 | 6 | Reserved |
+| 1 | 1 | 1 | 7 | Reserved |
+
+> **Hardware design note:** Populate pull-down resistors (default=0) on all three pins.
+> Only populate the pull-up on the pin corresponding to the desired SKU ID (bit=1).
+> This minimizes resistor count on the PCB for any single SKU.
+
+`memory.c` implementation:
 
 ```c
 int __weak variant_memory_sku(void)
 {
-    // GPIO_MEM_CONFIG_0  GPP_S4
-    // GPIO_MEM_CONFIG_1  GPP_S5
-    // GPIO_MEM_CONFIG_2  GPP_S6
+    // GPIO_MEM_CONFIG_0  GPP_S4  (bit0)
+    // GPIO_MEM_CONFIG_1  GPP_S5  (bit1)
+    // GPIO_MEM_CONFIG_2  GPP_S6  (bit2)
     gpio_t spd_gpios[] = { GPP_S4, GPP_S5, GPP_S6 };
     return gpio_base2_value(spd_gpios, ARRAY_SIZE(spd_gpios));
 }
 ```
 
-- **GPP_S4/S5/S6** 三个 GPIO 电平状态组成 binary 编码（2³=8 种组合）
-- `gpio_base2_value()` 读取并转换为 0-7 索引
-- 索引值用于从 CBFS 加载对应内存颗粒的 DQ map / training params / SPD data
-- 不同品牌颗粒（Samsung/Micron/SK Hynix）用不同上下拉电阻编码
+SPD hex files (already available in coreboot):
 
-> **Tip for Nissa port:** 如果 Nissa 与 Nivviks 使用不同内存颗粒，在 `memory.c` 中
-> 重新定义 `variant_memory_sku()` 和 `variant_memory_params()` 即可，无需改动 coreboot 框架。
-> Both share the same Brya parent board files. Reference Nivviks when creating Nissa port,
-> override where hardware differences exist.
+| SKU | coreboot path |
+|-----|--------------|
+| Micron | `spd/lp5/set-0/spd-4.hex` |
+| Samsung | `spd/lp5/set-0/spd-6.hex` |
+| Hynix | `spd/lp5/set-1/spd-4.hex` |
+
+`mem_parts_used.txt` configuration:
+
+```
+# Part Name
+MT62F2G32D8DR-031 WT:B
+K3LKCKC0BM-MGCP
+H9JCNNNFA5MLYR-N6E
+```
+
+---
+
+## coreboot Board Structure
+
+```
+coreboot/
+  src/mainboard/google/brya/         <- Parent board: Brya
+    variants/
+      nivviks/                        <- Reference variant (coreboot main)
+      baseboard/
+        nissa/                        <- Target board (coreboot main)
+          boardinfo.cb
+          config
+          devicetree.cb
+          gpio.c
+          acpi/
+          memory.c                    <- Memory SKU detection via GPP_S4/S5/S6
+          variant/                    <- Nissa-specific overrides
+```
+
+> Brya is the parent board. Nivviks and Nissa are sibling variants under brya/variants/.
 
 ---
 
@@ -155,11 +183,8 @@ int __weak variant_memory_sku(void)
 
 ### Phase 1: Information Gathering
 - [ ] Confirm Alder Lake-N SKU (e.g., Intel N100, N200, i3-N305, N5105)
-- [ ] Get Nivviks board files from coreboot tree (`src/mainboard/google/brya/variants/nivviks/`)
-- [ ] Get Google Nissa ChromeOS board files (schematics if available)
-- [ ] Verify Nissa vs Nivviks hardware differences (GPIO, peripherals, memory)
+- [ ] Verify hardware differences vs Nivviks (GPIO, peripherals)
 - [ ] Confirm BIOS chip: size and type (SST/Winbond SPI flash, e.g., 8MB/16MB)
-- [ ] Confirm LPDDR5 vendor and part number (critical for memory training)
 - [ ] Verify WLAN module: Intel CNVI PHY + PCIe WLAN card model
 - [ ] Confirm boot path: SPI flash layout (boot block, EC, FMAP, RW_A/RW_B)
 
@@ -180,18 +205,19 @@ int __weak variant_memory_sku(void)
 
 ### Phase 3: coreboot Base Port
 - [ ] Clone coreboot: `git clone https://review.coreboot.org/coreboot`
-- [ ] Create nissa board variant: `mkdir -p src/mainboard/google/brya/variants/baseboard/nissa/`
 - [ ] Reference Nivviks variant (`brya/variants/nivviks/`), adapt:
   - [ ] boardinfo.cb
   - [ ] config (Kconfig)
   - [ ] devicetree.cb (GPIO pinmux)
-  - [ ] gpio.c (GPIO initialization)
+  - [ ] gpio.c (GPIO initialization, include GPP_S4/S5/S6 strapping)
   - [ ] acpi/ (DSDT/SSDT tables)
-  - [ ] variant/ (memory training params, board-specific overrides)
+  - [ ] memory.c (implement `variant_memory_sku()` with GPP_S4/S5/S6)
+  - [ ] variant/ (board-specific overrides)
+- [ ] Configure `mem_parts_used.txt` for 3-memory SKU support
 - [ ] Configure FSP-M (Firmware Support Package - Memory init)
 - [ ] Configure FSP-S (Silicon init for Alder Lake-N)
-- [ ] Memory training: LPDDR5 (critical, verify with memory vendor)
-- [ ] Configure Intel CNVI Wi-Fi (integrated in SoC)
+- [ ] Memory training: LPDDR5 (FSP-M handles, SPD hex already available)
+- [ ] Configure Intel CNVi Wi-Fi (integrated in SoC)
 - [ ] Configure PCIe WLAN slot
 - [ ] Configure SATA/AHCI
 - [ ] Configure NVMe
@@ -212,6 +238,7 @@ int __weak variant_memory_sku(void)
 - [ ] 80Port POST codes via UART1 (0x3F8)
 - [ ] IPMI/KCS debug interface
 - [ ] EC<->CPU communication test (SMBus/LPC/eSPI)
+- [ ] Memory SKU detection via GPP_S4/S5/S6 (verify all 3 IDs)
 - [ ] Boot to UEFI Shell
 - [ ] Boot to OS (Linux/ChromeOS)
 - [ ] USB port enumeration and function
@@ -242,24 +269,23 @@ int __weak variant_memory_sku(void)
 ## EC Reference Code Structure (Architecture Reference Only)
 
 ```
-MI_EC_NB6590A_IT5771_DEMO/   ← Xiaomi reference (NB6590A platform, do not copy)
-├── Code/
-│   ├── API/                 # Chip-level API (ADC, GPIO, PWM, SMBus...)
-│   │   └── INCLUDE/
-│   ├── CHIP/               # Register definitions
-│   │   └── INCLUDE/CORE_CHIPREGS.H   # 0x2000=ECHIPID1, 0x200A=BADRSEL
-│   ├── CORE/               # Core EC firmware
-│   │   ├── CORE_COMMON/    # Core_Main.c, Core_Init.c, CORE_ACPI.c...
-│   │   ├── CORE_BANK0/     # CORE_FLASH, CORE_SCAN, CORE_PS2...
-│   │   └── INCLUDE/        # CORE_INIT.H: base port 0x4E/0x4F
-│   └── OEM/NB6590A/        # Platform OEM layer
-│       ├── INCLUDE/
-│       │   ├── OEM_PROJECT.H   # ITE_CHIP_IT557X=TRUE
-│       │   └── OEM_HOSTIF.H   # Host interface (LPC/eSPI)
-│       ├── OEM_BANK0/      # OEM_MAIN.C, OEM_POWER.C, OEM_FAN.C...
-│       └── USBC_PD/        # USB-C PD (Cypress/ITE/TI drivers)
-├── ROM/                    # Pre-built binaries
-└── uVision/               # Keil uVision project (.uvproj)
+MI_EC_NB6590A_IT5771_DEMO/   <- Xiaomi reference (NB6590A platform, do not copy)
+  Code/
+    API/                      # Chip-level API (ADC, GPIO, PWM, SMBus...)
+    CHIP/                     # Register definitions
+      INCLUDE/CORE_CHIPREGS.H # 0x2000=ECHIPID1, 0x200A=BADRSEL
+    CORE/                     # Core EC firmware
+      CORE_COMMON/            # Core_Main.c, Core_Init.c, CORE_ACPI.c...
+      CORE_BANK0/             # CORE_FLASH, CORE_SCAN, CORE_PS2...
+      INCLUDE/                # CORE_INIT.H: base port 0x4E/0x4F
+    OEM/NB6590A/             # Platform OEM layer
+      INCLUDE/
+        OEM_PROJECT.H        # ITE_CHIP_IT557X=TRUE
+        OEM_HOSTIF.H         # Host interface (LPC/eSPI)
+      OEM_BANK0/             # OEM_MAIN.C, OEM_POWER.C, OEM_FAN.C...
+      USBC_PD/               # USB-C PD (Cypress/ITE/TI drivers)
+  ROM/                        # Pre-built binaries
+  uVision/                   # Keil uVision project (.uvproj)
 ```
 
 ---
@@ -270,11 +296,9 @@ MI_EC_NB6590A_IT5771_DEMO/   ← Xiaomi reference (NB6590A platform, do not copy
   Memory map differs from desktop ADL platforms.
 - **Intel CNVI:** RF/analog on CPU package + separate PCIe WLAN card (baseband).
   coreboot FSP must support CNVI driver initialization. Verify FSP-M/S version.
-- **LPDDR5 memory training:** Most critical and complex step. Nivviks may use
-  specific LPDDR5 vendor bins. Verify if Nissa uses same or different memory.
-  Nissa uses GPP_S4/S5/S6 GPIO strapping for memory SKU (2³=8 combinations).
-  Implement `variant_memory_sku()` in `memory.c` to detect and load correct
-  DQ map and training params per memory vendor/part number.
+- **LPDDR5 memory:** MBX222 supports 3 SKUs (Micron/Samsung/Hynix) via GPP_S4/S5/S6
+  strapping (2^3=8 combinations). SPD hex files already in coreboot.
+  Implement `variant_memory_sku()` in `memory.c` with GPP_S4/S5/S6 pins.
 - **No TPM:** No fTPM/Intel PTT. Software-only disk encryption only. BitLocker
   may require additional configuration.
 - **eSPI vs LPC:** Modern ChromeOS boards use eSPI for EC-Host communication.
