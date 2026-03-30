@@ -290,21 +290,18 @@ MI_EC_NB6590A_IT5771_DEMO/   <- Xiaomi reference (NB6590A platform, do not copy)
 
 ---
 
-### Intel FSP Setup (Required)
+### Intel FSP + VBT Setup (Required)
 
-Intel FSP binaries are **binary blobs not on public git**, so the `3rdparty/fsp` submodule is
-skipped during clone. You must download them manually:
+Intel FSP and VBT are **binary blobs not on public git**, so `3rdparty/fsp` submodule
+is skipped during clone. Download them manually:
 
 ```bash
-# 1. Clone the FSP repo
+# 1. Clone Intel FSP repo
 git clone https://github.com/intel/FSP.git
 
 # 2. Copy ADL-N FSP binaries to coreboot
 cp -r FSP/AlderLakeFspBinPkg/IoT/AlderLakeN \
-      /path/to/coreboot/3rdparty/fsp/AlderLakeN/
-
-# 3. Or if using the repo layout directly:
-cp -r FSP/ /path/to/coreboot/3rdparty/fsp/
+      coreboot/3rdparty/fsp/AlderLakeN/
 ```
 
 Required FSP components for Alder Lake-N:
@@ -314,11 +311,35 @@ Required FSP components for Alder Lake-N:
 
 coreboot expects FSP binaries at:
 ```
-coreboot/3rdparty/fsp/AlderLakeN/Fsp.fd          # Combined FSP
-coreboot/3rdparty/fsp/AlderLakeN/FspM.fd         # Memory init
-coreboot/3rdparty/fsp/AlderLakeN/FspS.fd         # Silicon init
-coreboot/3rdparty/fsp/AlderLakeN/Fsp.bin         # Legacy format
+coreboot/3rdparty/fsp/AlderLakeN/Fsp.fd
+coreboot/3rdparty/fsp/AlderLakeN/FspM.fd
+coreboot/3rdparty/fsp/AlderLakeN/FspS.fd
 ```
+
+### VBT (Video BIOS Table) Setup
+
+VBT is the platform-specific display configuration blob (eDP/HDMI timing, panel info).
+ADL-N requires a **Dedicated ADL-N VBT bin**, not a generic one.
+
+```bash
+# 1. Clone Intel graphics bin repo
+git clone https://github.com/intel/VideoBiosBinaries.git
+
+# 2. Find ADL-N specific VBT
+ls VideoBiosBinaries/ | grep -i "adl\|nissa\|nivviks"
+
+# 3. Copy VBT to coreboot board directory
+#    coreboot will embed it into CBFS during build
+```
+
+VBT file location in coreboot (per board):
+```
+coreboot/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt
+```
+
+> **Important:** Use the ADL-N-specific VBT binary. Using a VBT from a different
+> platform (e.g., ADL-P, ADL-M) will cause display initialization failures or
+> incorrect panel timing. VBT filename typically contains "ADLN" or platform codename.
 
 ---
 
