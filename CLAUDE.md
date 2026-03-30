@@ -131,15 +131,15 @@ Nissa implements GPIO-based memory SKU detection in `memory.c`:
 ```c
 int __weak variant_memory_sku(void)
 {
-    // GPIO_MEM_CONFIG_0  GPP_E1
-    // GPIO_MEM_CONFIG_1  GPP_E2
-    // GPIO_MEM_CONFIG_2  GPP_E3
-    gpio_t spd_gpios[] = { GPP_E1, GPP_E2, GPP_E3 };
+    // GPIO_MEM_CONFIG_0  GPP_S4
+    // GPIO_MEM_CONFIG_1  GPP_S5
+    // GPIO_MEM_CONFIG_2  GPP_S6
+    gpio_t spd_gpios[] = { GPP_S4, GPP_S5, GPP_S6 };
     return gpio_base2_value(spd_gpios, ARRAY_SIZE(spd_gpios));
 }
 ```
 
-- **GPP_E1/E2/E3** 三个 GPIO 电平状态组成 binary 编码（2³=8 种组合）
+- **GPP_S4/S5/S6** 三个 GPIO 电平状态组成 binary 编码（2³=8 种组合）
 - `gpio_base2_value()` 读取并转换为 0-7 索引
 - 索引值用于从 CBFS 加载对应内存颗粒的 DQ map / training params / SPD data
 - 不同品牌颗粒（Samsung/Micron/SK Hynix）用不同上下拉电阻编码
@@ -272,7 +272,7 @@ MI_EC_NB6590A_IT5771_DEMO/   ← Xiaomi reference (NB6590A platform, do not copy
   coreboot FSP must support CNVI driver initialization. Verify FSP-M/S version.
 - **LPDDR5 memory training:** Most critical and complex step. Nivviks may use
   specific LPDDR5 vendor bins. Verify if Nissa uses same or different memory.
-  Nissa uses GPP_E1/E2/E3 GPIO strapping for memory SKU (2³=8 combinations).
+  Nissa uses GPP_S4/S5/S6 GPIO strapping for memory SKU (2³=8 combinations).
   Implement `variant_memory_sku()` in `memory.c` to detect and load correct
   DQ map and training params per memory vendor/part number.
 - **No TPM:** No fTPM/Intel PTT. Software-only disk encryption only. BitLocker
