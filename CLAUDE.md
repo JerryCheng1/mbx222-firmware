@@ -294,62 +294,63 @@ MI_EC_NB6590A_IT5771_DEMO/   <- 小米参考（NB6590A 平台，请勿复制）
 
 ---
 
-### Intel FSP + VBT 设置（必需）
+### Intel FSP 设置（mbx222-firmware 项目内已包含）
 
-Intel FSP 和 VBT 是**不在公共 git 上的二进制 blob**，所以克隆时 `3rdparty/fsp`
-子模块会被跳过。需要手动下载：
+mbx222-firmware 通过 `3rdparty/fsp/AlderLakeN/` 提供了干净的 FSP 文件结构，
+通过 git sparse-checkout 只取 AlderLakeN 相关内容，不污染 coreboot 源码树：
 
-```bash
-# 1. 克隆 Intel FSP 仓库
-git clone https://github.com/intel/FSP.git
-
-# 2. 复制 ADL-N FSP 二进制文件到 coreboot
-cp -r FSP/AlderLakeFspBinPkg/IoT/AlderLakeN \
-      coreboot/3rdparty/fsp/AlderLakeN/
 ```
+3rdparty/fsp/AlderLakeN/
+├── Fsp.fd                          <- 单体文件（FSP-M/S/O 合一）
+├── Include/                        <- FspmUpd.h / FspsUpd.h（C 结构体定义）
+│   ├── FspmUpd.h                   <- FSP-M 配置参数
+│   └── FspsUpd.h                   <- FSP-S 配置参数
+└── Vbt/                            <- 原始 VBT 文件（Intel FSP 包）
+    ├── Vbt_ADLN.bin                <- ADL-N 专用（仅这个用于 MBX222）
+    └── ...
+```
+
+coreboot 编译时会自动从 `3rdparty/fsp/AlderLakeN/Fsp.fd` 读取并拆出 FSP-M/FSP-S。
 
 Alder Lake-N 所需的 FSP 组件：
 - **FSP-M：** 内存初始化（LPDDR5 训练）
 - **FSP-S：** 硅片初始化（CPU/PCH 配置）
 - **FSP-O：** 可选，用于显卡
 
-coreboot 期望的 FSP 二进制文件位置：
-```
-coreboot/3rdparty/fsp/AlderLakeN/Fsp.fd
-coreboot/3rdparty/fsp/AlderLakeN/FspM.fd
-coreboot/3rdparty/fsp/AlderLakeN/FspS.fd
-```
-
 ### VBT（Video BIOS Table）设置
 
 VBT（Video BIOS Table）是平台特定的显示配置 blob（eDP/HDMI 时序、面板信息）。
-对于 Alder Lake-N，它包含在 FSP 包中：
+coreboot 期望的 VBT 文件名必须是 **`data.vbt`**（不是原始的 `Vbt_ADLN.bin`）。
+
+本项目已将 ADL-N 专用 VBT 准备好，存放在 `coreboot_board/` 目录下，
+作为 coreboot 主板源码树的参考结构：
 
 ```
-https://github.com/intel/FSP/tree/master/AlderLakeFspBinPkg/IoT/AlderLakeN
+coreboot_board/src/mainboard/google/brya/variants/baseboard/nissa/
+└── data.vbt                        <- Vbt_ADLN.bin 已更名为 data.vbt
 ```
 
-ADL-N 的 VBT 文件名通常包含 "ADLN" 或 "AlderLakeN"。
+**使用方式：** 将 `coreboot_board/` 下的文件复制到实际 coreboot 克隆的对应位置：
 
 ```bash
-# 1. 克隆 Intel FSP 仓库后（见上方 FSP 设置）
-# 2. 在 ADL-N 目录中找到 VBT 文件
-ls /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.bin
-#   或
-ls /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.vbt
+# 1. 克隆 coreboot
+git clone https://review.coreboot.org/coreboot
 
-# 3. 将 VBT 复制到 coreboot 主板目录（coreboot 将其嵌入 CBFS）
-cp /path/to/FSP/AlderLakeFspBinPkg/IoT/AlderLakeN/*.bin \
-      coreboot/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt
+# 2. 复制 FSP 到 coreboot（不污染）
+cp -r mbx222-firmware/3rdparty/fsp/AlderLakeN \
+       coreboot/3rdparty/fsp/
+
+# 3. 复制 VBT 到主板目录（必须命名为 data.vbt）
+cp mbx222-firmware/coreboot_board/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt \
+      coreboot/src/mainboard/google/brya/variants/baseboard/nissa/
+
+# 4. 复制主板源码文件（gpio.c / memory.c / devicetree.cb 等）
+cp -r mbx222-firmware/coreboot_board/src/mainboard/google/brya/variants/baseboard/nissa/* \
+      coreboot/src/mainboard/google/brya/variants/baseboard/nissa/
 ```
 
-VBT 文件在 coreboot 中的位置：
-```
-coreboot/src/mainboard/google/brya/variants/baseboard/nissa/data.vbt
-```
-
-> **重要：** 使用 ADL-N 专用的 VBT 二进制文件。使用其他平台（如 ADL-P、ADL-M）
-> 的 VBT 会导致显示初始化失败或面板时序错误。
+> **重要：** 必须使用 `Vbt_ADLN.bin`（重命名为 `data.vbt`）。使用其他平台
+>（如 ADL-P、ADL-M）的 VBT 会导致显示初始化失败或面板时序错误。
 
 ---
 
